@@ -5,6 +5,7 @@ description = "Playground for Hob features"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "jmespath>=1.0.1",
     "langchain>=0.3.27",
     "langchain-openai>=0.3.28",
     "langgraph>=0.6.2",

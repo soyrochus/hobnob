@@ -14,10 +14,11 @@ Hobnob enables you to create sophisticated AI workflows without writing complex 
 - **Declarative Configuration**: Define workflows in JSON rather than code
 - **LLM Integration**: Seamless integration with LangChain LLMs
 - **State Management**: Automatic state tracking and updates between steps
-- **Conditional Flow Control**: Dynamic routing based on state conditions
+- **Conditional Flow Control**: Dynamic routing based on state conditions with safe expression evaluators
 - **User Interaction**: Built-in support for user input steps
 - **Structured Output**: Automatic JSON parsing from LLM responses
 - **Rich Prompting**: Support for system prompts, context, examples, and instructions
+- **Security**: Safe condition evaluation using JMESPath instead of unsafe eval()
 
 ## Installation
 
@@ -122,12 +123,41 @@ Define how the workflow moves between steps:
 ```
 
 ### Conditional Logic
-Use Python expressions to control flow:
+Hobnob uses safe expression evaluators for conditional transitions:
 
 ```python
 "condition": "count > 10 and user_continue == 'yes'"
 "condition": "not done and len(results) < 5"
 "condition": "analysis_score >= 0.8"
+```
+
+**Router System**: Hobnob includes multiple expression evaluators for security and flexibility:
+
+- **JMESPathRouter** (default): Uses [JMESPath](https://jmespath.org/) for safe JSON querying
+- **EvalRouter**: Legacy evaluator, disabled by default for security
+- **Custom Routers**: Register domain-specific condition logic via `RouterRegistry`
+
+```python
+from hobnob import RouterRegistry, EvalRouter
+
+# Safe by default - uses JMESPath
+flow_definition = {
+    "transitions": [
+        {"from": "step1", "to": "step2", "condition": "count > 10"},
+        {"from": "step2", "to": None, "condition": "done"}
+    ]
+}
+
+# For development/legacy compatibility - enable unsafe eval
+EvalRouter.enabled = True  # Not recommended for production
+
+# Register custom router for domain-specific logic
+class CustomRouter:
+    def check(self, condition: str, state: dict) -> bool:
+        # Your custom logic here
+        return True
+
+RouterRegistry.register("custom", CustomRouter())
 ```
 
 ## Examples
@@ -223,46 +253,39 @@ Hobnob is built on top of:
 - **Interactive Applications**: Chatbots and assistants with complex state management
 - **Content Generation**: Multi-stage content creation with review cycles
 
-Certainly. Here’s a concise “**Fixes/Improvements**” section for your `hobnob` README, focused on the key technical debt and improvements already discussed:
-
 
 ## Fixes/Improvements
 
 The current implementation works and demonstrates the dynamic prompt-driven flow pattern, but the following fixes and enhancements are recommended for production use:
 
-### 1. **Safer Transition Logic**
-
-* **Problem:** The library currently uses Python’s `eval()` to interpret transition conditions in flow definitions. This is unsafe—arbitrary code execution is possible if the flow definition is user-supplied.
-* **Solution:** Replace `eval()` with a restricted expression parser, such as [JMESPath](https://jmespath.org/) or [asteval](https://newville.github.io/asteval/), or define a minimal in-house Boolean expression interpreter that supports only basic logical operations and comparisons. Alternatively, support LLM-based routers for even greater flexibility.
-
-### 2. **Better LLM Output Parsing**
+### 1. **Better LLM Output Parsing**
 
 * **Problem:** LLM step output parsing is currently forgiving; it silently swallows parsing errors and stores the output as a raw string. This can mask problems or inconsistencies in the LLM response.
 * **Solution:** Make parsing strict—fail fast on invalid JSON or unexpected fields. Optionally, support more robust JSON extraction (e.g., via regex for code blocks) and allow for structured error handling or user intervention.
 
-### 3. **Extensible Step Executors**
+### 2. **Extensible Step Executors**
 
 * **Problem:** Currently, only LLM and user-input steps are implemented. Custom step types (API calls, database operations, function tools, etc.) require code changes.
 * **Solution:** Expose an executor registry or plugin system so new step types can be added without modifying core code. Document how to register custom executors.
 
-### 4. **Step/Post-Step Callbacks**
+### 3. **Step/Post-Step Callbacks**
 
 * **Enhancement:** The new `on_step` callback mechanism is essential for traceability, debugging, and user experience. Document its use clearly in the README, and consider supporting hooks for pre-step, post-step, and error events.
 
-### 5. **Improved Error Handling & Logging**
+### 4. **Improved Error Handling & Logging**
 
 * **Problem:** Minimal error handling is present, and runtime errors are not surfaced in a user-friendly way.
 * **Solution:** Add robust logging, clear error messages, and options for graceful recovery, especially for user interaction and LLM failures.
 
-### 6. **Security & Sandboxing**
+### 5. **Security & Sandboxing**
 
 * **Enhancement:** If user-supplied or LLM-generated flows are supported, sandbox execution (especially any form of evaluation or code execution) to prevent privilege escalation or resource abuse.
 
-### 7. **Validation & Schema Enforcement**
+### 6. **Validation & Schema Enforcement**
 
 * **Enhancement:** Enforce state schemas more rigorously (with Pydantic or similar) to prevent key errors and maintain predictable step input/output contracts.
 
-### 8. **Testing & Examples**
+### 7. **Testing & Examples**
 
 * **Enhancement:** Add comprehensive tests for each executor, parser, and the overall runner. Include example flows in the repo for common use cases.
 

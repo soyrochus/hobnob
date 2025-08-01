@@ -7,10 +7,14 @@ import json
 from typing import TypedDict, List, Optional
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-
 from hobnob import FlowRunner
+from hobnob import RouterRegistry, EvalRouter
+
 
 load_dotenv()
+
+# Enable unsafe eval router (for dev only!)
+EvalRouter.enabled = True
 
 
 class GraphState(TypedDict):
@@ -94,8 +98,17 @@ if __name__ == "__main__":
         "limerick": None
     }
 
-    runner = FlowRunner(flow_definition, llm, GraphState, on_step=print_step)
-    final_state = runner.run(initial_state)
+
+    # To use eval (for fast iteration or Python-style conditions):
+    runner_eval = FlowRunner(
+        flow_definition,
+        llm,
+        GraphState,
+        on_step=print_step,
+        condition_router=RouterRegistry.get("eval"),
+    )
+
+    final_state = runner_eval.run(initial_state)
 
     print("\n==== FINAL STATE ====")
     print(json.dumps(final_state, indent=2))

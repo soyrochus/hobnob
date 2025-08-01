@@ -4,21 +4,33 @@ from langgraph.graph import StateGraph, END
 from hobnob.executors import LLMStep, UserInputStep
 from hobnob.rendering import PromptRenderer
 from hobnob.parsing import JsonParser
-
+from hobnob.routers import ConditionRouter, RouterRegistry
 
 class FlowRunner:
-    def __init__(
-        self,
-        flow_def: Dict[str, Any],
-        llm,
-        state_schema,
-        on_step: Callable[[str, Dict[str, Any]], None] = None  # NEW
-    ):
+    def __init__(self, flow_def, llm, state_schema, on_step=None, condition_router: Optional[ConditionRouter] = None):
         self.flow_def = flow_def
         self.llm = llm
         self.state_schema = state_schema
         self.on_step = on_step
+        self.condition_router = condition_router or RouterRegistry.get("jmespath")
         self._graph = self._build_graph()
+
+    def _router_factory(self, conds):
+        router = self.condition_router
+
+        def _route(state):
+            for tr in conds:
+                cond = tr.get("condition")
+                target = tr["to"]
+                if cond is None:
+                    return target or END
+                try:
+                    if router.check(cond, state):
+                        return target or END
+                except Exception as e:
+                    print(f"Condition routing error: {e}")
+            return END
+        return _route
     
     def _make_executor(self, step_cfg):
         step_name = step_cfg["name"]
@@ -43,25 +55,6 @@ class FlowRunner:
                     on_step(step_name, out)
                 return out
             return _fn
-
-    def _router_factory(self, conds: List[Dict[str, Any]]):
-        """
-        Very small interpreter for boolean expressions of the form
-        'user_continue == "yes" and not done'
-        """
-        def router(state: Dict[str, Any]):
-            for tr in conds:
-                cond = tr.get("condition")
-                target = tr["to"]
-                if cond is None:  # unconditional
-                    return target or END
-                try:
-                    if eval(cond, {}, state):   # pragma: no cover (demo only)
-                        return target or END
-                except Exception:
-                    pass
-            return END
-        return router
 
     def _build_graph(self):
         sg = StateGraph(self.state_schema)
