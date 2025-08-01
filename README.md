@@ -1,21 +1,251 @@
-## Core Intent: Generic Workflow Engine
+# Hobnob
 
-The code implements a framework that can execute arbitrary multi-step workflows defined in JSON configuration, where:
+[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-1. **Declarative Workflow Definition**: Workflows are defined as JSON configurations with steps, prompts, and transitions rather than hardcoded logic
-2. **LLM-Powered Step Execution**: Each step uses an LLM to process prompts and return structured JSON responses
-3. **Dynamic State Management**: The system maintains and updates state between steps based on LLM outputs
-4. **Conditional Flow Control**: Transitions between steps can be conditional based on state values
+**Hobnob** is a declarative workflow engine for building LLM-powered applications. Define complex multi-step workflows using JSON configuration and let Hobnob handle the execution, state management, and flow control.
 
-## Generic Architecture Components
+## Overview
 
-- **`build_graph()`**: Takes any workflow definition and creates an executable LangGraph
-- **`render_prompt()`**: Generic prompt templating using state variables
-- **`parse_json_from_llm_output()`**: Extracts structured data from LLM responses
-- **Conditional routing**: Evaluates transition conditions dynamically
+Hobnob enables you to create sophisticated AI workflows without writing complex orchestration code. Simply define your workflow steps, transitions, and conditions in a JSON configuration, and Hobnob will execute them using LangGraph under the hood.
 
-## Current Example: Fibonacci + Limericks
+## Key Features
 
-The Fibonacci/limerick flow is just a demonstration - the real value is that you could replace `flow_definition` with any other workflow (e.g., data processing pipelines, decision trees, multi-agent conversations) without changing the core engine.
+- **🔧 Declarative Configuration**: Define workflows in JSON rather than code
+- **LLM Integration**: Seamless integration with LangChain LLMs
+- **State Management**: Automatic state tracking and updates between steps
+- **Conditional Flow Control**: Dynamic routing based on state conditions
+- **User Interaction**: Built-in support for user input steps
+- **Structured Output**: Automatic JSON parsing from LLM responses
+- **Rich Prompting**: Support for system prompts, context, examples, and instructions
 
-This looks like a prototype for a more general system (possibly "Hob" based on the project name) that would allow users to define complex LLM-powered workflows declaratively rather than writing custom code for each use case.
+## Installation
+
+```bash
+pip install langchain-openai langgraph python-dotenv
+```
+
+Set your OpenAI API key:
+```bash
+export OPENAI_API_KEY=your_api_key_here
+```
+
+## Quick Start
+
+```python
+from typing import TypedDict, List, Optional
+from langchain_openai import ChatOpenAI
+from hobnob import FlowRunner
+
+# Define your state schema
+class MyState(TypedDict):
+    count: int
+    message: str
+    done: bool
+
+# Define your workflow
+flow_definition = {
+    "system_prompt": "You are a helpful assistant that counts numbers.",
+    "steps": [
+        {
+            "name": "count_step",
+            "context": "Count from the current number and provide a message.",
+            "instructions": "Increment the count by 1 and create a friendly message.",
+            "output_format": "Return JSON with: count, message, done",
+            "prompt": "Current count: {count}. Increment by 1 and create a message. Set done=true if count >= 5."
+        }
+    ],
+    "transitions": [
+        {"from": "count_step", "to": "count_step", "condition": "not done"},
+        {"from": "count_step", "to": None, "condition": "done"}
+    ],
+    "initial_step": "count_step"
+}
+
+# Run the workflow
+llm = ChatOpenAI(model="gpt-4o", temperature=0.2)
+runner = FlowRunner(flow_definition, llm, MyState)
+
+initial_state = {"count": 0, "message": "", "done": False}
+final_state = runner.run(initial_state)
+```
+
+## Step Types
+
+### LLM Steps
+Default step type that sends prompts to the LLM and processes JSON responses:
+
+```python
+{
+    "name": "analyze_data",
+    "context": "Background information about the task",
+    "instructions": "Specific instructions for the LLM", 
+    "output_format": "Expected JSON format description",
+    "examples": [{"input": {...}, "output": {...}}],
+    "prompt": "Process this data: {data}"
+}
+```
+
+### User Input Steps
+Interactive steps that prompt the user for input:
+
+```python
+{
+    "name": "get_user_choice",
+    "type": "user_input",
+    "question": "Would you like to continue? (yes/no): "
+}
+```
+
+## Flow Configuration
+
+### System Prompt
+Optional system-level instructions sent with every LLM request:
+
+```python
+{
+    "system_prompt": "You are an expert data analyst. Always be precise and thorough."
+}
+```
+
+### Transitions
+Define how the workflow moves between steps:
+
+```python
+"transitions": [
+    {"from": "step1", "to": "step2"},  # Unconditional
+    {"from": "step2", "to": "step3", "condition": "status == 'success'"},  # Conditional
+    {"from": "step3", "to": None}  # End workflow
+]
+```
+
+### Conditional Logic
+Use Python expressions to control flow:
+
+```python
+"condition": "count > 10 and user_continue == 'yes'"
+"condition": "not done and len(results) < 5"
+"condition": "analysis_score >= 0.8"
+```
+
+## Examples
+
+### Fibonacci with Limericks
+A complete example that generates Fibonacci numbers with creative limericks:
+
+```python
+from typing import TypedDict, List, Optional
+from langchain_openai import ChatOpenAI
+from hobnob import FlowRunner
+
+class FibState(TypedDict):
+    fib_sequence: List[int]
+    last_number: int
+    done: bool
+    user_continue: str
+    limerick: Optional[str]
+
+flow_definition = {
+    "system_prompt": "You are a creative mathematician and poet.",
+    "steps": [
+        {
+            "name": "fib_and_limerick",
+            "context": "The Fibonacci sequence: 1, 1, 2, 3, 5, 8, 13, ...",
+            "instructions": "Create a limerick and calculate the next Fibonacci number",
+            "output_format": "JSON with: limerick, fib_sequence, last_number, done",
+            "prompt": (
+                "Current sequence: {fib_sequence}\\n"
+                "Last number: {last_number}\\n\\n"
+                "1. Write a limerick about {last_number}\\n"
+                "2. Calculate next Fibonacci number\\n"
+                "3. Set done=true if new number > 10"
+            )
+        },
+        {
+            "name": "ask_continue",
+            "type": "user_input",
+            "question": "Continue? (yes/no): "
+        }
+    ],
+    "transitions": [
+        {"from": "fib_and_limerick", "to": "ask_continue"},
+        {"from": "ask_continue", "to": "fib_and_limerick", 
+         "condition": "user_continue == 'yes' and not done"},
+        {"from": "ask_continue", "to": None, 
+         "condition": "user_continue == 'no' or done"}
+    ],
+    "initial_step": "fib_and_limerick"
+}
+
+# Run with step callback for monitoring
+def print_step(step_name, state):
+    print(f"\\n--- {step_name} ---")
+    print(f"Sequence: {state.get('fib_sequence', [])}")
+    if state.get('limerick'):
+        print(f"Limerick:\\n{state['limerick']}")
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0.2)
+runner = FlowRunner(flow_definition, llm, FibState, on_step=print_step)
+
+initial_state = {
+    "fib_sequence": [1, 1],
+    "last_number": 1,
+    "done": False,
+    "user_continue": "yes",
+    "limerick": None
+}
+
+final_state = runner.run(initial_state)
+```
+
+## Architecture
+
+Hobnob is built on top of:
+- **LangGraph**: For workflow orchestration and state management
+- **LangChain**: For LLM integration and prompt management
+- **TypedDict**: For type-safe state schemas
+
+### Core Components
+
+- **FlowRunner**: Main orchestrator that builds and executes workflows
+- **PromptRenderer**: Handles enhanced prompt formatting with context and examples
+- **JsonParser**: Extracts structured data from LLM responses
+- **LLMStep**: Executes LLM-powered workflow steps
+- **UserInputStep**: Handles interactive user input
+
+## Use Cases
+
+- **Data Processing Pipelines**: Multi-step analysis and transformation workflows
+- **Decision Trees**: Complex conditional logic with user input
+- **Multi-Agent Conversations**: Orchestrated interactions between different AI agents
+- **Interactive Applications**: Chatbots and assistants with complex state management
+- **Content Generation**: Multi-stage content creation with review cycles
+
+## Development
+
+This project requires Python 3.13+ and uses modern type hints throughout.
+
+```bash
+
+# Run tests
+pytest
+
+# Type checking
+mypy hobnob/
+
+# Linting
+ruff check hobnob/
+```
+
+## Contributing
+
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+
+Please make sure to update tests as appropriate.
+
+
+## License and Copyright
+
+MIT License. See [LICENSE](LICENSE.txt) for details.
+
+Copyright © 2025 Iwan van der Kleijn
