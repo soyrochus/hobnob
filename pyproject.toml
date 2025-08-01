@@ -1,0 +1,19 @@
+[project]
+name = "hobnob"
+version = "0.1.0"
+description = "Playground for Hob features"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "langchain>=0.3.27",
+    "langchain-openai>=0.3.28",
+    "langgraph>=0.6.2",
+    "python-dotenv>=1.1.1",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.17.1",
+    "pytest>=8.4.1",
+    "ruff>=0.12.7",
+]
