@@ -11,7 +11,7 @@ Hobnob enables you to create sophisticated AI workflows without writing complex 
 
 ## Key Features
 
-- **🔧 Declarative Configuration**: Define workflows in JSON rather than code
+- **Declarative Configuration**: Define workflows in JSON rather than code
 - **LLM Integration**: Seamless integration with LangChain LLMs
 - **State Management**: Automatic state tracking and updates between steps
 - **Conditional Flow Control**: Dynamic routing based on state conditions
@@ -21,8 +21,10 @@ Hobnob enables you to create sophisticated AI workflows without writing complex 
 
 ## Installation
 
+Hobnob uses [uv](https://docs.astral.sh/uv/) for fast, reliable Python package and project management.
+
 ```bash
-pip install langchain-openai langgraph python-dotenv
+uv sync
 ```
 
 Set your OpenAI API key:
