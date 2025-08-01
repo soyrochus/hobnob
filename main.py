@@ -19,21 +19,47 @@ class GraphState(TypedDict):
 
 # ---- JSON configuration (as a Python dict here) ----
 flow_definition = {
+    "system_prompt": "You are a creative mathematician and poet. You excel at both mathematical calculations and writing entertaining limericks. Always be accurate with math and creative with poetry.",
     "steps": [
         {
             "name": "fib_and_limerick",
+            "context": "The Fibonacci sequence starts with 1, 1 and each subsequent number is the sum of the two preceding ones (1, 1, 2, 3, 5, 8, 13, ...).",
+            "instructions": "Create an entertaining limerick and calculate the next Fibonacci number accurately",
+            "output_format": "Return valid JSON with exactly these fields: limerick, fib_sequence, last_number, done",
+            "examples": [
+                {
+                    "input": {"fib_sequence": [1, 1], "last_number": 1},
+                    "output": {
+                        "limerick": "There once was a number named one,\nWho started the sequence for fun,\nWith another one too,\nThey made something new,\nAnd Fibonacci's tale had begun!",
+                        "fib_sequence": [1, 1, 2],
+                        "last_number": 2,
+                        "done": False
+                    }
+                },
+                {
+                    "input": {"fib_sequence": [1, 1, 2, 3, 5, 8], "last_number": 8},
+                    "output": {
+                        "limerick": "There once was an eight so great,\nWho knew thirteen would be his fate,\nWith five as his friend,\nThey'd sum to the end,\nAnd crossing ten was their date!",
+                        "fib_sequence": [1, 1, 2, 3, 5, 8, 13],
+                        "last_number": 13,
+                        "done": True
+                    }
+                }
+            ],
             "prompt": (
-                "Current Fibonacci sequence: {fib_sequence}. "
-                "Last number: {last_number}.\n"
-                "Write a silly limerick about {last_number}.\n"
-                "Then, calculate the next Fibonacci number and append it to the sequence.\n"
-                "If {last_number} > 10, set 'done' to true. Otherwise, set 'done' to false.\n"
-                "Return JSON with: limerick, fib_sequence, last_number, done."
+                "Current Fibonacci sequence: {fib_sequence}\n"
+                "Last number: {last_number}\n\n"
+                "TASKS:\n"
+                "1. Write a creative limerick about the number {last_number}\n"
+                "2. Calculate the next Fibonacci number (sum of last two numbers in sequence)\n"
+                "3. Append the new number to the sequence\n"
+                "4. IMPORTANT: Set 'done' to true if the NEW number you calculated > 10, otherwise false\n\n"
+                "Return your response as valid JSON."
             )
         },
         {
             "name": "ask_user_continue",
-            "prompt": ""  # This will be handled by direct user input
+            "type": "user_input"  # Mark this as a user interaction step
         }
     ],
     "transitions": [
@@ -48,9 +74,39 @@ flow_definition = {
 
 # ---- Core generic runner ----
 
-def render_prompt(prompt: str, state: Dict[str, Any]) -> str:
-    # Very basic rendering (Python's str.format)
-    return prompt.format(**state)
+def render_prompt(step_cfg: Dict[str, Any], state: Dict[str, Any], system_prompt: str = "") -> str:
+    """Enhanced prompt rendering with system context, examples, and structured formatting"""
+    full_prompt = ""
+    
+    # Add system prompt if provided
+    if system_prompt:
+        full_prompt += f"SYSTEM: {system_prompt}\n\n"
+    
+    # Add context if provided
+    if step_cfg.get("context"):
+        full_prompt += f"CONTEXT: {step_cfg['context']}\n\n"
+    
+    # Add examples if provided
+    if step_cfg.get("examples"):
+        full_prompt += "EXAMPLES:\n"
+        for i, ex in enumerate(step_cfg["examples"], 1):
+            full_prompt += f"Example {i}:\n"
+            full_prompt += f"Input: {json.dumps(ex['input'], indent=2)}\n"
+            full_prompt += f"Output: {json.dumps(ex['output'], indent=2)}\n\n"
+    
+    # Add instructions if provided
+    if step_cfg.get("instructions"):
+        full_prompt += f"INSTRUCTIONS: {step_cfg['instructions']}\n\n"
+    
+    # Add output format if provided
+    if step_cfg.get("output_format"):
+        full_prompt += f"OUTPUT FORMAT: {step_cfg['output_format']}\n\n"
+    
+    # Add the main prompt/task
+    if step_cfg.get("prompt"):
+        full_prompt += f"CURRENT TASK:\n{step_cfg['prompt'].format(**state)}"
+    
+    return full_prompt
 
 def parse_json_from_llm_output(output: str) -> Dict[str, Any]:
     # Assume LLM always returns JSON on first code block or line
@@ -76,12 +132,15 @@ def build_graph(flow_definition, llm):
             step_name = step_cfg['name']
             
             # Special handling for user interaction steps
-            if step_name == "ask_user_continue":
-                print(f"\nCurrent Fibonacci sequence: {state['fib_sequence']}")
+            if step_cfg.get("type") == "user_input" or step_name == "ask_user_continue":
+                print(f"\n=== USER INTERACTION ===")
+                print(f"Current Fibonacci sequence: {state['fib_sequence']}")
                 print(f"Last number: {state['last_number']}")
+                if state.get('limerick'):
+                    print(f"Latest limerick:\n{state['limerick']}")
                 
                 while True:
-                    user_input = input("Should we continue? (yes/no): ").lower().strip()
+                    user_input = input("\nShould we continue generating Fibonacci numbers? (yes/no): ").lower().strip()
                     if user_input in ['yes', 'y']:
                         return {**state, "user_continue": "yes"}
                     elif user_input in ['no', 'n']:
@@ -89,14 +148,22 @@ def build_graph(flow_definition, llm):
                     else:
                         print("Please enter 'yes' or 'no'")
             else:
-                # Regular LLM-powered step
-                prompt = render_prompt(step_cfg["prompt"], state)
-                print(f"\n>>> PROMPT ({step_cfg['name']}):\n{prompt}\n")
+                # Regular LLM-powered step with enhanced prompting
+                system_prompt = flow_definition.get("system_prompt", "")
+                prompt = render_prompt(step_cfg, state, system_prompt)
+                print(f"\n>>> ENHANCED PROMPT ({step_cfg['name']}):")
+                print("="*50)
+                print(prompt)
+                print("="*50)
+                
                 result = llm.invoke(prompt)
-                print(f"<<< LLM Output:\n{result.content}\n")
+                print(f"\n<<< LLM Output:\n{result.content}\n")
                 updates = parse_json_from_llm_output(result.content)
-                state = {**state, **updates}
-                return state
+                new_state = {**state, **updates}
+                
+                # Show what was updated
+                print(f"State updates: {updates}")
+                return new_state
         return node
 
     # Build LangGraph StateGraph
