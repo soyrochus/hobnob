@@ -129,6 +129,47 @@ Interactive steps that prompt the user for input:
 }
 ```
 
+### Web Search Steps
+Built-in executor that performs a DuckDuckGo query and stores the summary in state:
+
+```python
+{
+    "name": "lookup_topic",
+    "type": "web_search",
+    "query_key": "topic",        # read query from state["topic"]
+    "result_key": "summary"       # store results in state["summary"]
+}
+```
+
+### API Call Steps
+Generic HTTP request executor:
+
+```python
+{
+    "name": "get_joke",
+    "type": "api_call",
+    "url": "https://api.chucknorris.io/jokes/random",
+    "result_key": "joke"
+}
+```
+
+### Custom Executors
+Register domain-specific step types using the `ExecutorRegistry`:
+
+```python
+from hobnob import ExecutorRegistry
+
+def add_one_factory(cfg, _runner):
+    def _step(state):
+        return {**state, "n": state["n"] + 1}
+    return _step
+
+ExecutorRegistry.register("add_one", add_one_factory)
+
+# Then reference it in your flow definition:
+{"name": "bump", "type": "add_one"}
+```
+
 ## Flow Configuration
 
 ### System Prompt

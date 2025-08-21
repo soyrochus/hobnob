@@ -138,6 +138,7 @@ dependencies = [
     { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "python-dotenv" },
+    { name = "requests" },
 ]
 
 [package.dev-dependencies]
@@ -154,6 +155,7 @@ requires-dist = [
     { name = "langchain-openai", specifier = ">=0.3.28" },
     { name = "langgraph", specifier = ">=0.6.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
+    { name = "requests", specifier = ">=2.32.3" },
 ]
 
 [package.metadata.requires-dev]

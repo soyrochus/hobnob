@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models import BaseChatModel  # type: ignore[import-not-found]
+from langchain_core.messages import HumanMessage, SystemMessage  # type: ignore[import-not-found]
+from langchain_openai import ChatOpenAI  # type: ignore[import-not-found]
 
 from .parsing import JsonParser
 

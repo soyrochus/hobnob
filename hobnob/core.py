@@ -1,9 +1,7 @@
 from __future__ import annotations
 from typing import Any, Dict, Optional
-from langgraph.graph import StateGraph, END
-from hobnob.executors import LLMStep, UserInputStep
-from hobnob.rendering import PromptRenderer
-from hobnob.parsing import JsonParser
+from langgraph.graph import StateGraph, END  # type: ignore[import-not-found]
+from hobnob.executors import ExecutorRegistry
 from hobnob.routers import ConditionRouter, RouterRegistry
 
 class FlowRunner:
@@ -36,25 +34,16 @@ class FlowRunner:
         step_name = step_cfg["name"]
         stype = step_cfg.get("type", "llm")
         on_step = self.on_step
-        if stype == "user_input":
-            def _fn(state):
-                out = UserInputStep(step_cfg.get("question", "Continue? (yes/no): "))(state)
-                if on_step:
-                    on_step(step_name, out)
-                return out
-            return _fn
-        else:
-            def _fn(state):
-                out = LLMStep(
-                    step_cfg,
-                    self.llm,
-                    renderer=PromptRenderer(self.flow_def.get("system_prompt", "")),
-                    parser=JsonParser()
-                )(state)
-                if on_step:
-                    on_step(step_name, out)
-                return out
-            return _fn
+        factory = ExecutorRegistry.get(stype)
+        executor = factory(step_cfg, self)
+
+        def _fn(state):
+            out = executor(state)
+            if on_step:
+                on_step(step_name, out)
+            return out
+
+        return _fn
 
     def _build_graph(self):
         sg = StateGraph(self.state_schema)
