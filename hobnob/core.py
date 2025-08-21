@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Dict, Any, Callable, List
+from typing import Any, Dict, Optional
 from langgraph.graph import StateGraph, END
 from hobnob.executors import LLMStep, UserInputStep
 from hobnob.rendering import PromptRenderer
