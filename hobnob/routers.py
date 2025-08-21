@@ -1,7 +1,8 @@
 # routers.py
 
-from typing import Protocol, Dict, Any, Optional
-import jmespath
+from typing import Any, Dict, Protocol
+
+import jmespath  # type: ignore[import-untyped]
 
 class ConditionRouter(Protocol):
     def check(self, condition: str, state: Dict[str, Any]) -> bool: ...
@@ -27,7 +28,7 @@ class EvalRouter:
 # routers.py (continued)
 
 class RouterRegistry:
-    _routers = {
+    _routers: Dict[str, ConditionRouter] = {
         "jmespath": JMESPathRouter(),
         "eval": EvalRouter(),
     }
