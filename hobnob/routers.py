@@ -1,6 +1,6 @@
 # routers.py
 
-from typing import Protocol, Dict, Any, Optional
+from typing import Any, Dict, Protocol
 import jmespath
 
 class ConditionRouter(Protocol):

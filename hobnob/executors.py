@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Dict, Any, Protocol, Callable
+from typing import Any, Dict, Protocol
 from langchain_core.language_models import BaseChatModel
 from hobnob.rendering import PromptRenderer
 from hobnob.parsing import JsonParser

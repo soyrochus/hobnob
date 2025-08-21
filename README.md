@@ -73,6 +73,35 @@ initial_state = {"count": 0, "message": "", "done": False}
 final_state = runner.run(initial_state)
 ```
 
+## Prompt-to-Flow Generation
+
+You can create flow definitions directly from natural language using the
+`from_prompt` helper. This allows rapid prototyping of workflows without
+hand-writing JSON.
+
+```python
+import json
+from langchain_openai import ChatOpenAI
+from hobnob import from_prompt
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+flow = from_prompt("A workflow that greets a user and then asks for feedback", llm=llm)
+print(json.dumps(flow, indent=2))
+```
+
+### Refining a Flow
+
+The generated JSON can be refined by sending it back to `from_prompt` with
+additional instructions:
+
+```python
+refined = from_prompt(
+    "Add a final step that thanks the user and ends the session. "
+    "Here is the current flow:\n" + json.dumps(flow),
+    llm=llm,
+)
+```
+
 ## Step Types
 
 ### LLM Steps
