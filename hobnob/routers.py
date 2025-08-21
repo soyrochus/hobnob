@@ -1,8 +1,7 @@
 # routers.py
 
-from typing import Any, Dict, Protocol
-
-import jmespath  # type: ignore[import-untyped]
+from typing import Protocol, Dict, Any
+import jmespath
 
 class ConditionRouter(Protocol):
     def check(self, condition: str, state: Dict[str, Any]) -> bool: ...

@@ -19,3 +19,10 @@ dev = [
     "pytest>=8.4.1",
     "ruff>=0.12.7",
 ]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+python_classes = ["Test*"]

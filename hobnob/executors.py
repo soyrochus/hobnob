@@ -1,6 +1,6 @@
 from __future__ import annotations
-from typing import Any, Callable, Dict, Protocol
-from langchain_core.language_models import BaseChatModel  # type: ignore[import-not-found]
+from typing import Dict, Any, Protocol
+from langchain_core.language_models import BaseChatModel
 from hobnob.rendering import PromptRenderer
 from hobnob.parsing import JsonParser
 import requests  # type: ignore[import]

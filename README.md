@@ -14,6 +14,7 @@ Hobnob enables you to create sophisticated AI workflows without writing complex 
 - **Declarative Configuration**: Define workflows in JSON rather than code
 - **LLM Integration**: Seamless integration with LangChain LLMs
 - **State Management**: Automatic state tracking and updates between steps
+- **State Inference**: Optional `infer_state` flag builds the state schema from prompts or sample state
 - **Conditional Flow Control**: Dynamic routing based on state conditions with safe expression evaluators
 - **User Interaction**: Built-in support for user input steps
 - **Structured Output**: Automatic JSON parsing from LLM responses
@@ -73,6 +74,7 @@ initial_state = {"count": 0, "message": "", "done": False}
 final_state = runner.run(initial_state)
 ```
 
+<<<<<<< ours
 ## Prompt-to-Flow Generation
 
 You can create flow definitions directly from natural language using the
@@ -101,6 +103,20 @@ refined = from_prompt(
     llm=llm,
 )
 ```
+=======
+### Schema-Free Prompt-Driven Agents
+
+Skip defining a `TypedDict` entirely by relying on prompt placeholders or
+example state. When `infer_state=True` (default), `FlowRunner` constructs the
+state schema automatically and warns if steps introduce unexpected fields:
+
+```python
+llm = ChatOpenAI(model="gpt-4o", temperature=0.2)
+runner = FlowRunner(flow_definition, llm, infer_state=True)
+```
+
+This enables quick experiments and prototype agents driven purely by prompts.
+>>>>>>> theirs
 
 ## Step Types
 
