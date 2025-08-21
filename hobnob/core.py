@@ -1,5 +1,7 @@
 from __future__ import annotations
-from typing import Dict, Any, Optional, TypedDict, Set
+from typing import Dict, Any, Optional, Set, TypedDict
+import logging
+import time
 import re
 import warnings
 from langgraph.graph import StateGraph, END
@@ -7,6 +9,8 @@ from hobnob.executors import ExecutorRegistry
 from hobnob.rendering import PromptRenderer
 from hobnob.parsing import JsonParser
 from hobnob.routers import ConditionRouter, RouterRegistry
+
+logger = logging.getLogger(__name__)
 
 class FlowRunner:
     def __init__(
@@ -32,7 +36,7 @@ class FlowRunner:
         self._known_fields: Set[str] = set(getattr(self.state_schema, "__annotations__", {}).keys())
         self._graph = self._build_graph()
 
-    def _infer_state_schema(self) -> type[TypedDict]:
+    def _infer_state_schema(self) -> type:
         fields: Set[str] = set()
         for step in self.flow_def.get("steps", []):
             prompt = step.get("prompt", "")
@@ -64,7 +68,7 @@ class FlowRunner:
                     if router.check(cond, state):
                         return target or END
                 except Exception as e:
-                    print(f"Condition routing error: {e}")
+                    logger.exception("Condition routing error: %s", e)
             return END
         return _route
     
@@ -72,17 +76,49 @@ class FlowRunner:
         step_name = step_cfg["name"]
         stype = step_cfg.get("type", "llm")
         on_step = self.on_step
-        # Use the ExecutorRegistry to obtain a factory for this step type.
-        # The factory signature is (cfg, runner) -> Executor.
+        retry_cfg = step_cfg.get("retry", {})
+        system_prompt = self.flow_def.get("system_prompt", "")
+
         factory = ExecutorRegistry.get(stype)
 
-        def _fn(state):
-            executor = factory(step_cfg, self)
-            out = executor(state)
-            if on_step:
-                on_step(step_name, out)
-            self._validate_state(out)
-            return out
+        def _run_once(state: Dict[str, Any]) -> Dict[str, Any]:
+            # Create a fresh executor each attempt in case it has internal state.
+            executor = factory(
+                {**step_cfg, "system_prompt": system_prompt},  # pass through config
+                self,
+            )
+            return executor(state)
+
+        def _fn(state: Dict[str, Any]) -> Dict[str, Any]:
+            logger.info("Step %s input: %s", step_name, state)
+            max_attempts = int(retry_cfg.get("max_attempts", 1) or 1)
+            backoff = float(retry_cfg.get("backoff", 0) or 0)
+            attempt = 0
+            last_exc: Optional[Exception] = None
+            while attempt < max_attempts:
+                attempt += 1
+                try:
+                    out = _run_once(state)
+                    logger.info("Step %s output: %s", step_name, out)
+                    if on_step:
+                        on_step(step_name, out)
+                    return out
+                except Exception as exc:  # pragma: no cover - error path
+                    last_exc = exc
+                    if attempt < max_attempts:
+                        logger.warning(
+                            "Retrying step %s after error: %s (attempt %s)",
+                            step_name,
+                            exc,
+                            attempt,
+                        )
+                        if backoff > 0:
+                            time.sleep(backoff)
+                    else:
+                        logger.exception("Step %s failed", step_name)
+                        raise
+            # Should not reach here
+            raise last_exc if last_exc else RuntimeError("Unknown step failure")
 
         return _fn
 

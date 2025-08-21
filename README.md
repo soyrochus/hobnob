@@ -20,6 +20,8 @@ Hobnob enables you to create sophisticated AI workflows without writing complex 
 - **Structured Output**: Automatic JSON parsing from LLM responses
 - **Rich Prompting**: Support for system prompts, context, examples, and instructions
 - **Security**: Safe condition evaluation using JMESPath instead of unsafe eval()
+- **Observability**: Step-level logs for inputs, outputs, and errors
+- **Resilience**: Configurable retry/backoff policies
 
 ## Installation
 
@@ -38,8 +40,11 @@ export OPENAI_API_KEY=your_api_key_here
 
 ```python
 from typing import TypedDict, List, Optional
+import logging
 from langchain_openai import ChatOpenAI
 from hobnob import FlowRunner
+
+logging.basicConfig(level=logging.INFO)
 
 # Define your state schema
 class MyState(TypedDict):
@@ -246,6 +251,19 @@ class CustomRouter:
 RouterRegistry.register("custom", CustomRouter())
 ```
 
+### Retries & Backoff
+
+Configure automatic retries for any step to handle transient failures:
+
+```python
+{
+    "name": "fetch_data",
+    "retry": {"max_attempts": 5, "backoff": 2}
+}
+```
+
+`max_attempts` controls how many times the step is attempted. `backoff` sets the base delay (in seconds) for exponential backoff between attempts.
+
 ## Examples
 
 ### Fibonacci with Limericks
@@ -376,6 +394,15 @@ The current implementation works and demonstrates the dynamic prompt-driven flow
 * **Enhancement:** Add comprehensive tests for each executor, parser, and the overall runner. Include example flows in the repo for common use cases.
 
 
+## Monitoring & Recovery
+
+Long-running workflows benefit from proactive monitoring and recovery mechanisms:
+
+- Enable logging at `INFO` level to capture step inputs, outputs, and errors.
+- Ship logs to a central system for alerting and audit trails.
+- Use `retry` policies with exponential backoff to handle transient LLM or tool failures.
+- Persist intermediate state so workflows can resume after interruption.
+- Run workflows under external supervisors or schedulers that can restart from the last checkpoint.
 
 ## Development
 

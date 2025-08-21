@@ -4,6 +4,7 @@ export OPENAI_API_KEY=...
 """
 
 import json
+import logging
 from typing import TypedDict, List, Optional
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
@@ -12,6 +13,7 @@ from hobnob import RouterRegistry, EvalRouter
 
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO)
 
 # Enable unsafe eval router (for dev only!)
 EvalRouter.enabled = True

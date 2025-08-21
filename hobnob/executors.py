@@ -1,10 +1,12 @@
 from __future__ import annotations
 from typing import Dict, Any, Protocol
+import logging
 from langchain_core.language_models import BaseChatModel
 from hobnob.rendering import PromptRenderer
 from hobnob.parsing import JsonParser
 import requests  # type: ignore[import]
 
+logger = logging.getLogger(__name__)
 
 class Executor(Protocol):
     def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]: ...
@@ -21,8 +23,10 @@ class LLMStep:
 
     def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
         prompt = self.renderer.render(self.cfg, state)
+        logger.debug("LLM prompt: %s", prompt)
         result = self.llm.invoke(prompt)
-        updates = self.parser.parse(result.content)
+        logger.debug("LLM raw result: %s", result)
+        updates = self.parser.parse(str(result.content))
         return {**state, **updates}
 
 

@@ -10,7 +10,7 @@ dependencies = [
     "langchain-openai>=0.3.28",
     "langgraph>=0.6.2",
     "python-dotenv>=1.1.1",
-    "requests>=2.32.3",
+    "tenacity>=8.2.3",
 ]
 
 [dependency-groups]
@@ -18,11 +18,5 @@ dev = [
     "mypy>=1.17.1",
     "pytest>=8.4.1",
     "ruff>=0.12.7",
+    "types-jmespath>=1.0.2",
 ]
-
-[tool.pytest.ini_options]
-minversion = "6.0"
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_functions = ["test_*"]
-python_classes = ["Test*"]
