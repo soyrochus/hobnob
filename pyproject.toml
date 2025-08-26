@@ -11,6 +11,9 @@ dependencies = [
     "langgraph>=0.6.2",
     "python-dotenv>=1.1.1",
     "tenacity>=8.2.3",
+    "psycopg[binary,pool]>=3.2.3",
+    "orjson>=3.10.0",
+    "jsonschema>=4.23.0",
 ]
 
 [dependency-groups]
@@ -20,3 +23,21 @@ dev = [
     "ruff>=0.12.7",
     "types-jmespath>=1.0.2",
 ]
+
+[project.scripts]
+hobnob = "hobnob.cli:main"
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hobnob*"]
+exclude = ["tests*", "examples*", "sql*"]

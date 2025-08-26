@@ -79,12 +79,97 @@ initial_state = {"count": 0, "message": "", "done": False}
 final_state = runner.run(initial_state)
 ```
 
-<<<<<<< ours
-## Prompt-to-Flow Generation
+### TriStore (AGE/Cypher) Persistence
 
-You can create flow definitions directly from natural language using the
-`from_prompt` helper. This allows rapid prototyping of workflows without
-hand-writing JSON.
+- Graph-first persistence for flows, steps, instances, checkpoints, and events using PostgreSQL + AGE.
+- Optional and off by default. Enable by passing `persist_flow=True` and a `TriStore` instance.
+
+```python
+from hobnob.tristore import TriStore
+from langchain_openai import ChatOpenAI
+
+# Flow must include a stable identity
+flow_definition |= {"name": "my_flow", "semver": "1.0.0"}
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+store = TriStore()  # reads DSN from HOBNOB_DATABASE_URL or DATABASE_URL
+runner = FlowRunner(flow_definition, llm, infer_state=True, persist_flow=True, store=store)
+
+final_state = runner.run(initial_state, tenant="demo")
+```
+
+Replay deterministically (temperature=0, same model):
+
+```bash
+hobnob replay --instance <uuid>
+```
+
+#### Database Setup (AGE/Cypher)
+
+1) Install PostgreSQL + the AGE extension. Ensure the extension is available in your DB.
+2) Initialize the graph and tables (one-time):
+
+```bash
+export HOBNOB_DATABASE_URL=postgres://user:pass@host:5432/db
+hobnob graph-init --graph hob
+# or apply the SQL directly:
+psql "$HOBNOB_DATABASE_URL" -f sql/001_tristore.sql
+```
+
+DSN examples:
+
+```bash
+# Local default database
+export HOBNOB_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres"
+
+# Custom database/user
+export HOBNOB_DATABASE_URL="postgresql://hob_user:s3cret@127.0.0.1:5432/hob_db"
+```
+
+Verify AGE is available and working:
+
+```bash
+psql "$HOBNOB_DATABASE_URL" -c "CREATE EXTENSION IF NOT EXISTS age;"
+psql "$HOBNOB_DATABASE_URL" -c "LOAD 'age';"
+psql "$HOBNOB_DATABASE_URL" -c "SELECT create_graph('hob');"
+psql "$HOBNOB_DATABASE_URL" -c "SELECT * FROM cypher('hob', $$ RETURN 1 $$) AS (r agtype);"
+```
+
+Installing Apache AGE (quick notes):
+
+- Requires PostgreSQL headers and build tools. Extension creation typically needs superuser privileges. On managed services, ensure AGE is supported and enabled by your provider.
+
+Ubuntu/Debian (PG 15):
+
+```bash
+sudo apt-get update
+sudo apt-get install -y postgresql-15 postgresql-server-dev-15 build-essential git
+git clone https://github.com/apache/age.git
+cd age
+make PG_CONFIG=/usr/lib/postgresql/15/bin/pg_config
+sudo make install PG_CONFIG=/usr/lib/postgresql/15/bin/pg_config
+# then in the target database
+psql "$HOBNOB_DATABASE_URL" -c "CREATE EXTENSION age;"
+psql "$HOBNOB_DATABASE_URL" -c "LOAD 'age';"
+```
+
+macOS (Homebrew, PG 15):
+
+```bash
+brew install postgresql@15 git
+brew services start postgresql@15
+export PATH="$(brew --prefix)/opt/postgresql@15/bin:$PATH"
+git clone https://github.com/apache/age.git
+cd age
+make PG_CONFIG=$(which pg_config)
+make install PG_CONFIG=$(which pg_config)
+psql "$HOBNOB_DATABASE_URL" -c "CREATE EXTENSION age;"
+psql "$HOBNOB_DATABASE_URL" -c "LOAD 'age';"
+```
+
+### Prompt-to-Flow Generation (default authoring)
+
+You can create flow definitions directly from natural language using `from_prompt`.
 
 ```python
 import json
@@ -96,10 +181,7 @@ flow = from_prompt("A workflow that greets a user and then asks for feedback", l
 print(json.dumps(flow, indent=2))
 ```
 
-### Refining a Flow
-
-The generated JSON can be refined by sending it back to `from_prompt` with
-additional instructions:
+Refine by sending the JSON back with more instructions:
 
 ```python
 refined = from_prompt(
@@ -108,20 +190,57 @@ refined = from_prompt(
     llm=llm,
 )
 ```
-=======
+
 ### Schema-Free Prompt-Driven Agents
 
-Skip defining a `TypedDict` entirely by relying on prompt placeholders or
-example state. When `infer_state=True` (default), `FlowRunner` constructs the
-state schema automatically and warns if steps introduce unexpected fields:
+Skip defining a `TypedDict` by relying on prompt placeholders or example state. When `infer_state=True` (default), `FlowRunner` constructs the state schema and warns on unexpected fields.
 
 ```python
 llm = ChatOpenAI(model="gpt-4o", temperature=0.2)
 runner = FlowRunner(flow_definition, llm, infer_state=True)
 ```
 
-This enables quick experiments and prototype agents driven purely by prompts.
->>>>>>> theirs
+### Publishing and Versioning
+
+To guarantee deterministic replay, publish flows with a stable `name@semver` and freeze that spec in the graph.
+
+Python API:
+
+```python
+from hobnob import publish_flow
+from hobnob.tristore import TriStore
+
+store = TriStore()
+summary = publish_flow(flow_definition, store, name="fib_limericks", semver="1.0.0")
+print(summary)  # includes flow_id, flow_hash, status
+```
+
+CLI (prompt or file):
+
+```bash
+# From prompt
+hobnob publish --prompt "Fibonacci with limericks" --name fib_limericks --semver 1.0.0
+
+# From JSON file
+hobnob publish --file flow.json --name fib_limericks --semver 1.0.0
+```
+
+Semver is immutable: attempting to republish a different spec under the same version will fail. Bump `semver` for any change.
+
+### One-shot: Generate + Publish + Run
+
+```bash
+hobnob quickrun \
+  --prompt "Fibonacci with limericks" \
+  --name fib_limericks \
+  --semver 1.0.0 \
+  --model gpt-4o \
+  --temperature 0.0 \
+  --tenant demo \
+  --state '{"fib_sequence":[1,1],"last_number":1,"done":false,"user_continue":"yes"}'
+```
+
+You can also use `--file flow.json` and `--state-file state.json`.
 
 ## Step Types
 
@@ -333,6 +452,8 @@ initial_state = {
 
 final_state = runner.run(initial_state)
 ```
+
+To persist and replay this flow, see `examples/fib_tristore.py` and the TriStore/Publish sections above.
 
 ## Architecture
 
