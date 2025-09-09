@@ -23,6 +23,10 @@ Hobnob enables you to create sophisticated AI workflows without writing complex 
 - **Observability**: Step-level logs for inputs, outputs, and errors
 - **Resilience**: Configurable retry/backoff policies
 
+## Documentation
+
+Comprehensive documentation lives in the [doc](doc/) directory. Build it locally with `mkdocs serve`.
+
 ## Installation
 
 Hobnob uses [uv](https://docs.astral.sh/uv/) for fast, reliable Python package and project management.
