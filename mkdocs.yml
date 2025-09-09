@@ -1,0 +1,18 @@
+site_name: Hobnob
+docs_dir: doc
+plugins:
+  - mkdocstrings:
+      default_handler: python
+nav:
+  - Home: index.md
+  - Concepts: concepts.md
+  - Architecture: architecture.md
+  - Tutorial: tutorial.md
+  - Reference:
+      - Overview: reference/index.md
+      - Core: reference/core.md
+      - Executors: reference/executors.md
+      - Parsing: reference/parsing.md
+      - Rendering: reference/rendering.md
+      - Routers: reference/routers.md
+      - TriStore: reference/tristore.md
